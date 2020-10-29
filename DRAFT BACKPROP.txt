@@ -1,0 +1,186 @@
+from nltk.tokenize import sent_tokenize, word_tokenize
+import nltk
+sentence = input("Please enter the sentence: ")
+print("The input string: ", sentence)
+corpora=sentence
+wordtoken_test=word_tokenize(sentence)
+print("Tokenization of testing data: ",wordtoken_test)
+
+
+from nltk.corpus import state_union
+from nltk.tokenize import PunktSentenceTokenizer
+post_test=nltk.pos_tag(wordtoken_test)
+print("Parts of speech tagging of testing data:",post_test)
+
+feature_vector=[]
+connectives=[]
+who=[]
+which=[]
+when=[]
+what=[]
+where=[]
+how=[]
+pos_tagging2=[]
+
+#CATEGORIZE THE TESTING DATA
+for i in range(0,len(wordtoken_test)):
+    if 'ADJ' in post_test[i][1]:
+        feature_vector.append(1)
+    elif 'ADV' in post_test[i][1]:
+        feature_vector.append(2)
+    elif 'CNG' in post_test[i][1]:
+        feature_vector.append(3)
+    elif 'DET' in post_test[i][1]:
+        feature_vector.append(4)
+    elif 'EX' in post_test[i][1]:
+        feature_vector.append(5)
+    elif 'MD' in post_test[i][1]:
+        feature_vector.append(6)
+    elif 'N' in post_test[i][1]:
+        feature_vector.append(7)
+    elif 'NP' in post_test[i][1]:
+        feature_vector.append(8)
+    elif 'NUM' in post_test[i][1]:
+        feature_vector.append(9)
+    elif 'PRP' in post_test[i][1]:
+        feature_vector.append(10)
+    elif 'P' in post_test[i][1]:
+        feature_vector.append(11)
+    elif 'TO' in post_test[i][1]:
+        feature_vector.append(12)
+    elif 'UH' in post_test[i][1]:
+        feature_vector.append(13)
+    elif 'V' in post_test[i][1]:
+        feature_vector.append(14)
+    elif 'VD' in post_test[i][1]:
+        feature_vector.append(15)
+    elif 'VG' in post_test[i][1]:
+        feature_vector.append(16)
+    elif 'VN' in post_test[i][1]:
+        feature_vector.append(17)
+    elif 'WH' in post_test[i][1]:
+        feature_vector.append(18)
+    else:
+        continue
+
+print(feature_vector)
+import numpy as np
+
+class BackPropagationNetwork:
+    """A Back Propagation Network"""
+
+    #CLASS MEMBERS
+    layerCount = 0
+    shape = None
+    weights=[]
+
+    #CLASS METHODS
+    def __init__(self, layerSize):
+        """Initialize the Network"""
+
+        #LAYER INFO
+        self.layerCount = len(layerSize)-1
+        self.shape = layerSize
+
+        #I/O DATA FROM LAST RUN
+        self._layerInput = []
+        self._layerOutput = []
+
+        #CREATE THE WEIGHT ARRAYS
+        for (l1,l2) in zip(layerSize[:-1], layerSize[1:]):
+            self.weights.append(np.random.normal(scale=0.1, size= (l2,l1+1)))
+
+    #RUN METHOD
+    def Run(self, inputs):
+        "Run the Network based on the Input Data"""
+        lnCases = inputs.shape[0]
+        #Clear out the previous intermediate value lists
+        self._layerInput = []
+        for index in range(self.layerCount):
+            if index == 0:
+                layerInput = self.weights[0].dot(np.vstack([inputs.T, np.ones([1, lnCases])]))
+            else:
+                layerInput = self.weights[index].dot(np.vstack([self._layerOutput[-1], np.ones([1, lnCases])]))
+
+            self._layerInput.append(layerInput)
+            self._layerOutput.append(self.sgm(layerInput))
+            
+        return self._layerOutput[-1].T
+
+
+    def TrainEpoch(self, inputs, target, trainingRate= 0.2):
+        """This method trains the network for one epoch"""
+
+        delta = []
+        lnCases = inputs.shape[0]
+        self.Run(inputs)
+
+        #CALCULATE DELTAS
+        for index in reversed(range(self.layerCount)):
+            if index == self.layerCount - 1:
+                #COMPARE TO THE TARGET VALUES
+                output_delta = self._layerOutput[index]-target.T
+                error = np.sum(output_delta**2)
+                delta.append(output_delta * self.sgm(self._layerInput[index], True))
+            
+        
+            else:
+                #COMPARE TO THE FOLLOWING LAYER DELTA
+                delta_pullback = self.weights[index+1].T.dot(delta[-1])
+                delta.append(delta_pullback[:-1, :]*self.sgm(self._layerInput[index],True))
+                
+                
+        #COMPUTE WEIGHT DELTAS
+        for index in range(self.layerCount):
+            delta_index = self.layerCount - 1- index
+
+            if index == 0:
+                layerCount = np.vstack([inputs.T, np.ones([1, lncases])])
+            else:
+                layerOutput = np.vstack([self._layerOutput[index-1], np.ones([1, self._layerOutput[index-1].shape[1]])])
+
+
+            weightDelta=np.sum(\
+                                layerOutput[None,:,:].transpose(len(wordtoken_test),18,3)*delta[delta_index][None,:,:].transpose(len(wordtoken_test),18,3)\
+                                , axis=0)                                      
+            self.weights[index] -=trainingRate*weightDelta
+
+        return error                      
+                
+    #TRANSFER FUNCTION
+    def sgm(self,x,Derivative=False):
+        if not Derivative:
+            return 1/(1+np.exp(-x))
+        else:
+            out = self.sgm(x)
+            return out*(1-out)
+        
+    
+if __name__== "__main__":
+    bpn=BackPropagationNetwork((len(wordtoken_test), 18, 3))
+    print(bpn.shape)
+    print(bpn.weights)
+    feature_vector.append(0)
+    lvInput = np.array([feature_vector])
+    lvTarget= np.array([[15.5],[7],[1]])
+    lnMax= 100000
+
+    lnErr=1e-5
+    for i in range(lnMax+1):
+        err=bpn.TrainEpoch(lvInput, lvTarget)
+        if i%10000 == 0:
+            print("Iteration: ",i,"Error: ",err)
+        if err <= lnErr:
+            print("Minimum error reached at iteration: ",i)
+            break
+
+    #DISPALY OUTPUT
+    lvOutput= bpn.Run(lvInput)
+    print("input: ",lvInput,"Output: ",lvOutput)
+            
+    lvOutput = bpn.Run(lvInput)
+
+    print("Input: {0}\nOutput: {1}",lvInput, lvOutput)
+    
+        
+
